@@ -1,0 +1,12 @@
+.git
+target
+.env
+.env.*
+.venv*
+__pycache__
+.pytest_cache
+artifacts
+*.bundle
+
+k8s/*.local.yaml
+*.secret.env

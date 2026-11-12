@@ -1,0 +1,13 @@
+# Copy to config.local.yaml and set real endpoints before applying.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-config
+data:
+  SERVER_PORT: '8080'
+  MANAGEMENT_PORT: '9091'
+  DATABASE_HOST: REPLACE_WITH_POSTGRES_HOST
+  DATABASE_PORT: '5432'
+  DATABASE_DB: store
+  PRODUCT_URL: http://product:8080
+  EXCHANGE_URL: http://exchange:8080

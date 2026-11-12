@@ -1,0 +1,16 @@
+target/
+.venv*/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+*.log
+*.class
+*.jar
+*.bundle
+.idea/
+.vscode/
+artifacts/
+k8s/*.local.yaml
+*.secret.env

@@ -1,0 +1,61 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-order
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - services
+  verbs:
+  - get
+  - create
+  - patch
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  resourceNames:
+  - order-config
+  verbs:
+  - get
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  resourceNames:
+  - order-secrets
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-order
+subjects:
+- kind: Group
+  name: jenkins-order
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: jenkins-order
+  apiGroup: rbac.authorization.k8s.io
