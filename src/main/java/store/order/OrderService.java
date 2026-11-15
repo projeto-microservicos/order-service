@@ -27,11 +27,11 @@ public class OrderService {
     }
     public OrderOut get(String account,String id,String requestedCurrency) {
         String currency=requestedCurrency.toUpperCase(Locale.ROOT);
-        if(!currency.matches("[A-Z]{3}")) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Invalid currency");
+        if(!currency.matches("[A-Z]{3}")) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,"Invalid currency");
         int digits;
         try { digits=Currency.getInstance(currency).getDefaultFractionDigits(); }
-        catch(IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Invalid currency"); }
-        if(digits<0) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Invalid currency");
+        catch(IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,"Invalid currency"); }
+        if(digits<0) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,"Invalid currency");
         OrderOut order=cache.get(account,id).orElseGet(() -> {
             var snapshot=store.get(account,id);
             cache.put(account,snapshot);

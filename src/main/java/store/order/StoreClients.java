@@ -36,7 +36,7 @@ public class StoreClients {
             if(quote==null || quote.sell()==null || quote.sell().signum()<=0) throw unavailable();
             return quote.sell();
         } catch(HttpClientErrorException e) {
-            if(e.getStatusCode().value()==422) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Currency not supported");
+            if(e.getStatusCode().value()==422) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,"Currency not supported");
             throw unavailable();
         } catch(RestClientException e) { throw unavailable(); }
     }

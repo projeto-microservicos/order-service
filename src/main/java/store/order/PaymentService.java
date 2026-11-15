@@ -71,7 +71,7 @@ public class PaymentService {
     }
 
     private ResponseStatusException invalidAmount() {
-        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "USD payment must be between 0.50 and 999999.99");
+        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "USD payment must be between 0.50 and 999999.99");
     }
     private ResponseStatusException unavailable() {
         return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Payment provider unavailable; retry safely");
