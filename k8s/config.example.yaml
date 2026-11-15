@@ -11,3 +11,14 @@ data:
   DATABASE_DB: store
   PRODUCT_URL: http://product:8080
   EXCHANGE_URL: http://exchange:8080
+  # Enable after provisioning these dependencies; credentials belong in order-secrets.
+  CACHE_ENABLED: 'false'
+  REDIS_HOST: REPLACE_WITH_REDIS_HOST
+  CACHE_TTL: 5m
+  MESSAGING_ENABLED: 'false'
+  RABBITMQ_HOST: REPLACE_WITH_RABBITMQ_HOST
+  RABBITMQ_USERNAME: store
+  JWT_ENABLED: 'false'
+  JWT_ISSUER_URI: ''
+  JWT_AUDIENCE: order-service
+  PAYMENTS_ENABLED: 'false'

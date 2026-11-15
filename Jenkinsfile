@@ -29,6 +29,9 @@ pipeline {
       }
       post { always { junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml' } }
     }
+    stage('Vulnerability scan') {
+      steps { sh 'bash scripts/scan.sh' }
+    }
     stage('Publish to ECR and deploy to EKS') {
       steps {
         script {

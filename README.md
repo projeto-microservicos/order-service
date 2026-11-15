@@ -10,7 +10,7 @@ With JDK 25 and Maven 3.9+:
 mvn -B -ntp verify
 ```
 
-Tests start HTTP stubs for product and exchange, so neither service needs to be running for the build.
+Tests start HTTP provider stubs and use H2, with Redis/RabbitMQ simulated where needed. External services and payment credentials are not needed for the build.
 
 ```bash
 docker build -t store/order-service:dev .
@@ -39,9 +39,22 @@ Supply the trusted `id-account` header. Example body:
 
 All monetary values are stored in USD using `BigDecimal`/`NUMERIC`. Product prices are resolved before any order is persisted. The service never trusts client totals. Order lookups constrain both order ID and account ID. Conversion uses one sell/ask quote per response, rounds each line to the requested currency's fraction digits, and sums the displayed lines; stored amounts remain unchanged. Dependency failure returns 503.
 
-Configuration: database settings as in `.env.example`, `DATABASE_SSLMODE`, `PRODUCT_URL`, `EXCHANGE_URL`, `SERVER_PORT`, `MANAGEMENT_PORT`. `/swagger-ui/index.html` documents the API. Actuator metrics use private port 9091.
+Configuration: database settings as in `.env.example`, `DATABASE_SSLMODE`, `PRODUCT_URL`, `EXCHANGE_URL`, `SERVER_PORT`, `MANAGEMENT_PORT`. `/swagger-ui/index.html` documents the API. Actuator metrics use private port 9091. `id-account` must contain an account UUID.
 
-Two HTTP integration tests cover persistence, ownership, totals/conversion, invalid quantities and missing products with no partial order. They use H2 and HTTP provider stubs. Authentication is the gateway's responsibility; this internal service trusts its verified header.
+The test suite covers persistence, ownership, totals/conversion, validation, cache failures, transactional events, relay retries, JWT scopes and idempotent payments. By default, authentication is the gateway's responsibility; this internal service trusts its verified header. Optional JWT verification derives the account from the token subject and enforces `orders:read` / `orders:write` scopes.
+
+## Bottlenecks
+
+The seven areas in the [Insper exercise](https://insper.github.io/platform/pt/2026.2/exercises/bottlenecks/) are covered by Redis caching, Prometheus/Grafana, RabbitMQ with a transactional outbox, Kubernetes load distribution across two replicas, Trivy in both CI pipelines, optional Stripe PaymentIntents and optional OAuth2 JWT verification.
+
+See [the implementation and validation guide](docs/BOTTLENECKS.md) for the before/after mapping, configuration, payment endpoints and failure behavior. To run the monitoring stack locally:
+
+```bash
+python scripts/init-env.py --update
+docker compose --profile monitoring up --build -d --wait --wait-timeout 300
+```
+
+Grafana: `http://localhost:3000` (user `admin`, password `GRAFANA_PASSWORD` from your local `.env`). Prometheus: `http://localhost:9090`. Cache and messaging are enabled by default in Compose; JWT and Stripe require explicit configuration. An existing `.env` can be upgraded with `--update`, preserving its values.
 
 ## Repository boundaries
 

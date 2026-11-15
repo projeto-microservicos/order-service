@@ -4,7 +4,7 @@ Este repositório tem uma Pipeline independente. O Jenkins busca o código no Gi
 
 ## 1. Preparar o agente Jenkins
 
-Use um agente Linux dedicado aos repositórios confiáveis, com label **`eks-deploy`**. Instale Git, Bash, Python 3.9+, AWS CLI v2, Docker CLI com BuildKit e um daemon/builder acessível, e `kubectl` compatível com a versão do cluster (mesma versão minor ou uma acima/abaixo). Para este serviço, instale JDK 25 e Maven 3.9+ no agente.
+Use um agente Linux dedicado aos repositórios confiáveis, com label **`eks-deploy`**. Instale Git, Bash, Python 3.9+, AWS CLI v2, Docker CLI com BuildKit e um daemon/builder acessível, e `kubectl` compatível com a versão do cluster (mesma versão minor ou uma acima/abaixo). Para este serviço, instale JDK 25 e Maven 3.9+ no agente. A etapa de vulnerabilidades usa Trivy instalado ou baixa a imagem fixada pelo script `scripts/scan.sh`; as bases CVE/Java exigem conectividade externa.
 
 Plugins: Pipeline (incluindo Declarative), Git, Credentials Binding e JUnit. GitHub é necessário somente para o webhook descrito adiante. AWS Credentials é necessário somente se usar `AWS_CREDENTIALS_ID`.
 
@@ -91,7 +91,7 @@ O RBAC permite gerenciar Deployments e Services nesse namespace, listar Pods e c
 
 ### Configuração da aplicação
 
-Prepare PostgreSQL/Redis e sua conectividade antes do primeiro deploy. Esta Pipeline não cria bancos, caches, VPCs ou o cluster. Pedidos usa PostgreSQL e chama produtos/câmbio por HTTP. No mesmo namespace, os padrões `http://product:8080` e `http://exchange:8080` resolvem pelos Services. Se usar namespaces diferentes, configure os endereços completos.
+Prepare PostgreSQL e sua conectividade antes do primeiro deploy. Se habilitar cache ou mensageria, prepare também Redis e RabbitMQ e configure os endpoints/credenciais. Esta Pipeline não cria bancos, caches, brokers, VPCs ou o cluster. Pedidos usa PostgreSQL e chama produtos/câmbio por HTTP. No mesmo namespace, os padrões `http://product:8080` e `http://exchange:8080` resolvem pelos Services. Se usar namespaces diferentes, configure os endereços completos. Veja [BOTTLENECKS.md](BOTTLENECKS.md) para JWT, Stripe e as novas variáveis.
 
 ```bash
 cp k8s/config.example.yaml k8s/config.local.yaml
@@ -118,7 +118,7 @@ Se sua infraestrutura já gerencia o Secret, mantenha esse mecanismo e use o nom
 
 O arquivo `k8s/k8s.yaml` agora contém somente Deployment e Services. As configurações são preparadas separadamente para que um deploy não substitua senhas ou endpoints. Alterações posteriores no ConfigMap/Secret exigem reiniciar os Pods, por exemplo `kubectl -n "$K8S_NAMESPACE" rollout restart deployment/order`, e acompanhar o rollout.
 
-Os serviços permanecem `ClusterIP`. Configure o gateway/Ingress da sua infraestrutura existente para acesso externo autenticado. A aplicação usa o header `id-account` definido pelo gateway; o deploy não cria ou altera rotas públicas.
+Os serviços permanecem `ClusterIP`, com duas réplicas da aplicação. Configure o gateway/Ingress da sua infraestrutura existente para acesso externo autenticado. Por padrão, a aplicação usa o header `id-account` definido pelo gateway; com `JWT_ENABLED=true`, valida o token e obtém a conta de `sub`. O deploy não cria ou altera rotas públicas.
 
 ## 4. Conectar cada repositório GitHub ao Jenkins
 
@@ -149,13 +149,13 @@ Após preparar o ambiente, mude o `defaultValue` de `DEPLOY` para `true` se quis
 
 ## 5. O que a Pipeline faz
 
-1. Limpa o workspace do job, faz checkout e executa os testes da aplicação e do script de release.
+1. Limpa o workspace do job, faz checkout, executa os testes e analisa as dependências do JAR com Trivy. CVEs HIGH/CRITICAL impedem a publicação.
 2. Confere a conta AWS e a existência do ECR. Com deploy ativo, gera um kubeconfig temporário e verifica o ConfigMap e Secret do serviço.
 3. Constrói e publica uma imagem com tag `COMMIT_COMPLETO-BUILD_NUMBER`; consulta seu digest no ECR.
 4. Com `DEPLOY=true`, renderiza Deployment/Services com namespace, digest e arquitetura corretos usando o Kustomize do `kubectl`; valida no servidor e aplica, inclusive no primeiro deploy.
 5. Aguarda `rollout status`. Falha de build, login ou push impede o deploy; falha de rollout deixa o job com erro. ConfigMaps e Secrets não são reaplicados pelo job.
 
-Artefatos Jenkins: `release.json` registra commit, imagem, digest e resultado do deploy; `deployment.yaml` registra o manifesto aplicado sem os valores dos Secrets. `pending` significa que a atualização foi iniciada mas não concluiu com sucesso. O Docker config e o kubeconfig temporários são removidos no encerramento normal ou falha do script.
+Artefatos Jenkins: `vulnerabilities.json` registra a varredura; `release.json` registra commit, imagem, digest e resultado do deploy; `deployment.yaml` registra o manifesto aplicado sem os valores dos Secrets. `pending` significa que a atualização foi iniciada mas não concluiu com sucesso. O Docker config e o kubeconfig temporários são removidos no encerramento normal ou falha do script.
 
 Não há rollback automático. Após corrigir a causa, execute uma nova release; para voltar uma versão, um operador autorizado pode usar `kubectl rollout undo deployment/order -n store` e acompanhar o rollout. Em um primeiro deploy ainda não existe revisão anterior. O script não remove imagens antigas; configure políticas de retenção no ECR e limpeza de imagens no agente conforme seu uso.
 

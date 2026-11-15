@@ -1,0 +1,21 @@
+# Isolated dependencies for scripts/test-infrastructure.sh; random loopback ports.
+services:
+  redis:
+    image: redis:8.2-alpine
+    ports: ['127.0.0.1::6379']
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  rabbit:
+    image: rabbitmq:4.2-management-alpine
+    ports: ['127.0.0.1::5672']
+    environment:
+      RABBITMQ_DEFAULT_USER: smoke
+      RABBITMQ_DEFAULT_PASS: ${SMOKE_RABBIT_PASSWORD:?Use scripts/test-infrastructure.sh}
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30

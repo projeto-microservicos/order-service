@@ -7,6 +7,29 @@ spring:
     url: jdbc:postgresql://${DATABASE_HOST:db}:${DATABASE_PORT:5432}/${DATABASE_DB:store}?sslmode=${DATABASE_SSLMODE:disable}
     username: ${DATABASE_USERNAME:store}
     password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+      connection-timeout: 3000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: 500ms
+      timeout: 500ms
+      repositories:
+        enabled: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:store}
+    password: ${RABBITMQ_PASSWORD:}
+    connection-timeout: 2s
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    dynamic: ${store.messaging.enabled}
+    template:
+      mandatory: true
   flyway:
     schemas: orders
   jpa:
@@ -16,6 +39,11 @@ spring:
     properties:
       hibernate.default_schema: orders
 management:
+  health:
+    redis:
+      enabled: ${store.cache.enabled}
+    rabbit:
+      enabled: ${store.messaging.enabled}
   server:
     port: ${MANAGEMENT_PORT:9091}
   endpoints:
@@ -27,6 +55,8 @@ management:
       probes:
         enabled: true
   metrics:
+    tags:
+      application: order
     distribution:
       percentiles-histogram:
         http.server.requests: true
@@ -34,3 +64,18 @@ management:
 store:
   product-url: ${PRODUCT_URL:http://product:8080}
   exchange-url: ${EXCHANGE_URL:http://exchange:8080}
+  cache:
+    enabled: ${CACHE_ENABLED:false}
+    ttl: ${CACHE_TTL:5m}
+  messaging:
+    enabled: ${MESSAGING_ENABLED:false}
+    poll-delay: ${OUTBOX_POLL_DELAY:1000}
+  security:
+    jwt-enabled: ${JWT_ENABLED:false}
+    issuer-uri: ${JWT_ISSUER_URI:}
+    audience: ${JWT_AUDIENCE:order-service}
+  payments:
+    enabled: ${PAYMENTS_ENABLED:false}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    base-url: https://api.stripe.com
+    api-version: 2026-10-28.endive
