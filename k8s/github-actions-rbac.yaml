@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: jenkins-order
+  name: github-actions-order
 rules:
 - apiGroups:
   - apps
@@ -50,12 +50,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: jenkins-order
+  name: github-actions-order
 subjects:
 - kind: Group
-  name: jenkins-order
+  name: github-actions-order
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
-  name: jenkins-order
+  name: github-actions-order
   apiGroup: rbac.authorization.k8s.io

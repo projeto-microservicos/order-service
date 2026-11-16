@@ -3,7 +3,12 @@ kind: Deployment
 metadata:
   name: order
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: order
@@ -33,6 +38,12 @@ spec:
             name: order-config
         - secretRef:
             name: order-secrets
+        # Keep these disabled on the current cluster, including with an older ConfigMap.
+        env:
+        - name: CACHE_ENABLED
+          value: 'false'
+        - name: MESSAGING_ENABLED
+          value: 'false'
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

@@ -1,4 +1,5 @@
-# Optional: apply separately after installing metrics-server. Jenkins does not manage this resource.
+# Optional: apply only after increasing cluster capacity and installing metrics-server.
+# CI/CD does not apply this resource; keep it absent while using one replica.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

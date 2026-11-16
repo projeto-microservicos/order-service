@@ -7,8 +7,8 @@ Referência: [exercício Gargalos — Insper 2026.2](https://insper.github.io/pl
 | Cache | Toda leitura de detalhe consultava PostgreSQL | Redis armazena snapshots imutáveis em USD com TTL e chave por conta/pedido; falhas usam o banco |
 | Observabilidade | Actuator e endpoint Prometheus já existentes | Coleta Prometheus, datasource e dashboard Grafana provisionados; métricas de cache e entrega de eventos |
 | Mensageria | Nenhum evento assíncrono | `OrderCreated` gravado atomicamente com o pedido e publicado pelo relay no RabbitMQ |
-| Balanceamento | Service Kubernetes com uma réplica | Duas réplicas atrás do mesmo Service; HPA opcional com 2–6 réplicas |
-| Vulnerabilidades | CI sem bloqueio explícito por CVE | Trivy inspeciona dependências do JAR; HIGH/CRITICAL interrompem Jenkins e GitHub Actions |
+| Balanceamento | Service Kubernetes com uma réplica | Service pronto para múltiplas réplicas e HPA opcional com 2–6; cluster atual permanece com uma réplica |
+| Vulnerabilidades | CI sem bloqueio explícito por CVE | Trivy inspeciona dependências do JAR; HIGH/CRITICAL interrompem o GitHub Actions CI/CD |
 | Pagamentos | Ausente | Stripe PaymentIntent com total calculado no servidor, idempotência persistida, consulta de status e tratamento de falhas |
 | Autenticação/autorização | Header confiável do gateway e consultas por proprietário já existentes | Modo OAuth2 JWT opcional com validação de assinatura, emissor, expiração, audiência e scopes |
 
@@ -51,9 +51,9 @@ Para observar eventos localmente, use a interface de administração dentro do c
 
 ## Balanceamento no Kubernetes
 
-`k8s/k8s.yaml` inicia duas réplicas. O Service `order` distribui conexões entre Pods prontos, e probes retiram Pods indisponíveis. O balanceamento é por conexão; uma única conexão HTTP persistente pode continuar no mesmo Pod. Para capacidade e tolerância a falhas, reserve recursos suficientes nos nós e dimensione o banco considerando `DATABASE_POOL_SIZE` por réplica (padrão 10).
+`k8s/k8s.yaml` inicia uma réplica por restrição de capacidade, com cache e mensageria explicitamente desligados. O rollout usa `maxSurge=0` e `maxUnavailable=1`, evitando um Pod extra e aceitando indisponibilidade breve. Mantenha o HPA ausente nesta fase. Quando houver capacidade aprovada, aumente as réplicas e revise a estratégia de atualização. O Service `order` distribui conexões entre Pods prontos, e probes retiram Pods indisponíveis. O balanceamento é por conexão; uma única conexão HTTP persistente pode continuar no mesmo Pod. Dimensione o banco considerando `DATABASE_POOL_SIZE` por réplica (padrão 10).
 
-O Compose mantém uma instância da aplicação. Para autoscaling no cluster, instale metrics-server e aplique separadamente:
+O Compose mantém uma instância da aplicação e permite validar Redis/RabbitMQ localmente. Para autoscaling futuro no cluster, após ampliar a capacidade, instale metrics-server e aplique separadamente:
 
 ```bash
 kubectl -n store apply -f k8s/hpa.yaml
@@ -61,7 +61,7 @@ kubectl -n store get hpa order
 kubectl -n store get endpointslice -l kubernetes.io/service-name=order
 ```
 
-O HPA busca CPU média de 70%, com 2–6 réplicas e estabilização de redução de cinco minutos. Quando o HPA administrar a aplicação, remova `spec.replicas` do Deployment para evitar interferência entre configuração declarativa e autoscaling. O Jenkins continua publicando apenas Deployment/Services; HPA e dependências são administrados separadamente.
+O HPA busca CPU média de 70%, com 2–6 réplicas e estabilização de redução de cinco minutos. Quando o HPA administrar a aplicação, remova `spec.replicas` do Deployment para evitar interferência entre configuração declarativa e autoscaling. O GitHub Actions publica apenas Deployment/Services; HPA e dependências são administrados separadamente. Cache/mensageria no cluster dependem também da remoção dos overrides do Deployment; Redis/RabbitMQ serão executados no próprio cluster, sem ElastiCache/Amazon MQ.
 
 ## Varredura de vulnerabilidades
 
@@ -74,7 +74,7 @@ O script usa Trivy instalado no agente ou a imagem fixada `aquasec/trivy:0.76.2`
 
 O modo `rootfs` ativa a análise de arquivos Java empacotados. O script exige um inventário de bibliotecas no relatório, impedindo aprovação silenciosa por uma análise vazia. As bases ficam no cache ignorado `artifacts/.trivy-cache`.
 
-O Jenkins executa a varredura antes de publicar no ECR; ambas as pipelines arquivam o relatório mesmo em falha. Isso verifica dependências da aplicação. A configuração ECR `scanOnPush` descrita em [JENKINS-EKS.md](JENKINS-EKS.md) complementa a análise com a imagem publicada. Atualize dependências e repita o scan quando surgirem vulnerabilidades; a aprovação de uma execução não garante ausência futura de CVEs.
+O GitHub Actions executa a varredura antes de publicar no ECR e arquiva o relatório mesmo em falha. Isso verifica dependências da aplicação. A configuração de scanning do ECR pode complementar a análise com a imagem publicada; alinhe sua ativação e custo com o responsável pela conta. Veja [GITHUB-ACTIONS-EKS.md](GITHUB-ACTIONS-EKS.md) para configurar a pipeline. Atualize dependências e repita o scan quando surgirem vulnerabilidades; a aprovação de uma execução não garante ausência futura de CVEs.
 
 ## JWT e autorização
 

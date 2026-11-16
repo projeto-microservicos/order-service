@@ -45,7 +45,7 @@ The test suite covers persistence, ownership, totals/conversion, validation, cac
 
 ## Bottlenecks
 
-The seven areas in the [Insper exercise](https://insper.github.io/platform/pt/2026.2/exercises/bottlenecks/) are covered by Redis caching, Prometheus/Grafana, RabbitMQ with a transactional outbox, Kubernetes load distribution across two replicas, Trivy in both CI pipelines, optional Stripe PaymentIntents and optional OAuth2 JWT verification.
+The seven areas in the [Insper exercise](https://insper.github.io/platform/pt/2026.2/exercises/bottlenecks/) have implementations for Redis caching, Prometheus/Grafana, RabbitMQ with a transactional outbox, Kubernetes load distribution with optional additional replicas, Trivy in CI/CD, optional Stripe PaymentIntents and optional OAuth2 JWT verification. The current EKS configuration uses one replica with cache and messaging disabled until cluster capacity is available.
 
 See [the implementation and validation guide](docs/BOTTLENECKS.md) for the before/after mapping, configuration, payment endpoints and failure behavior. To run the monitoring stack locally:
 
@@ -58,17 +58,17 @@ Grafana: `http://localhost:3000` (user `admin`, password `GRAFANA_PASSWORD` from
 
 ## Repository boundaries
 
-This is an independent Git repository with its own source, tests, Dockerfile, Jenkinsfile, Kubernetes manifest and GitHub Actions workflow. Build commands run from this repository's root. No parent checkout, sibling source tree or local Maven artifact from another store service is required.
+This is an independent Git repository with its own source, tests, Dockerfile, Kubernetes manifest and GitHub Actions CI/CD workflow. Build commands run from this repository's root. No parent checkout, sibling source tree or local Maven artifact from another store service is required.
 
-This delivery does not modify `platform` or register this service as a submodule. In a deployed system, an authentication gateway must validate the user and set the `id-account` header. Direct ports in the development Compose file are bound to loopback for local testing. Do not expose an internal service directly to the internet or trust caller-supplied identities at a public endpoint.
+An aggregate repository can reference this repository as a submodule without changing its independent build. In a deployed system, an authentication gateway must validate the user and set the `id-account` header. Direct ports in the development Compose file are bound to loopback for local testing. Do not expose an internal service directly to the internet or trust caller-supplied identities at a public endpoint.
 
 ## CI and releases
 
-Deploy to EKS with this repository's `Jenkinsfile`. It tests the service, publishes its container to a private ECR repository, and optionally applies the Deployment/Services and waits for rollout. Images are deployed by digest. The AWS identity belongs to the Jenkins agent; a stored kubeconfig is not required.
+Use [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) for verification, ECR publication and optional EKS deployment. AWS authentication uses GitHub OIDC with temporary credentials. Images are deployed by digest; release tags include the commit, workflow run and retry number.
 
-See [the Jenkins + EKS setup guide](docs/JENKINS-EKS.md) for agent dependencies, IAM, EKS access, initial environment setup, GitHub checkout/webhooks, parameters and troubleshooting. `DEPLOY=false` publishes only; enable deployment after preparing the namespace and dependencies.
+See [the GitHub Actions + EKS setup guide](docs/GITHUB-ACTIONS-EKS.md) for variables, OIDC trust/IAM policies, EKS access and environment setup. Pull requests run CI only. Releases run manually from `main`, or automatically after setting `RELEASE_ENABLED=true`. Keep `DEPLOY_ENABLED=false` until PostgreSQL and cluster access are ready; manual runs have a separate `deploy` checkbox, off by default.
 
-`k8s/k8s.yaml` contains only the application Deployment and Services. Copy `k8s/config.example.yaml` to `k8s/config.local.yaml` and configure your environment once. Secrets are created separately; deployments never overwrite them. The application remains private (ClusterIP). Existing GitHub Actions continues to run CI only.
+`k8s/k8s.yaml` contains only the application Deployment and Services. It uses one replica, disables cache/messaging explicitly, and avoids an extra Pod during updates (brief downtime is possible). Leave the optional HPA unapplied. Copy `k8s/config.example.yaml` to `k8s/config.local.yaml` and configure your environment once. Secrets are created separately; deployments never overwrite them. PostgreSQL is required; this pipeline creates no AWS infrastructure. The application remains private (ClusterIP).
 
 ## Clone the repository
 

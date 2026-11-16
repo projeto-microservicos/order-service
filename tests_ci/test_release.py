@@ -74,7 +74,7 @@ class ReleaseTest(unittest.TestCase):
         self.environment = dict(os.environ, PATH=str(self.root / 'bin') + os.pathsep + os.environ['PATH'],
                                 CALL_LOG=str(self.log), TMPDIR=str(self.root / 'tmp'),
                                 SERVICE=SERVICE, AWS_REGION='us-east-1', AWS_ACCOUNT_ID='123456789012',
-                                ECR_REPOSITORY=SERVICE + '-service', BUILD_NUMBER='42',
+                                ECR_REPOSITORY=SERVICE + '-service', RELEASE_ID='42-1',
                                 EKS_CLUSTER_NAME='test-cluster', K8S_NAMESPACE='store',
                                 IMAGE_PLATFORM='linux/amd64', DEPLOY='true', FAILURE='')
 
@@ -117,7 +117,7 @@ class ReleaseTest(unittest.TestCase):
         self.assertLess(next(i for i, value in enumerate(calls) if value.startswith('docker push')),
                         next(i for i, value in enumerate(calls) if ' rollout ' in value))
 
-    @unittest.skipUnless(REAL_KUBECTL, 'kubectl not installed; real render is checked on the Jenkins agent')
+    @unittest.skipUnless(REAL_KUBECTL, 'kubectl not installed; real render needs a compatible client')
     def test_real_kustomize_render(self):
         result = self.run_release(REAL_KUBECTL=REAL_KUBECTL)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -135,6 +135,16 @@ class ReleaseTest(unittest.TestCase):
         config = json.loads((self.root / 'render-input.json').read_text())
         patch = json.loads(config['patches'][0]['patch'])
         self.assertEqual(patch[0]['value']['kubernetes.io/arch'], 'arm64')
+
+    def test_retry_has_a_distinct_tag_for_immutable_ecr(self):
+        result = self.run_release(DEPLOY='false', RELEASE_ID='42-2')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        release = json.loads((self.root / 'artifacts/release.json').read_text())
+        self.assertTrue(release['image_tag'].endswith('-42-2'))
+
+    def test_invalid_release_id_has_no_external_effects(self):
+        self.assertNotEqual(self.run_release(RELEASE_ID='42; echo bad').returncode, 0)
+        self.assertEqual(self.calls, [])
 
     def test_wrong_account_stops_before_build(self):
         self.assertNotEqual(self.run_release('account').returncode, 0)

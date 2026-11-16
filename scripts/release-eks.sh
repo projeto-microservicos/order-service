@@ -5,7 +5,7 @@ set +x
 export AWS_PAGER=""
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 required() { [[ -n "${!1:-}" ]] || fail "Set $1"; }
-for name in SERVICE AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY BUILD_NUMBER; do required "$name"; done
+for name in SERVICE AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY RELEASE_ID; do required "$name"; done
 DEPLOY=${DEPLOY:-false}
 K8S_NAMESPACE=${K8S_NAMESPACE:-store}
 IMAGE_PLATFORM=${IMAGE_PLATFORM:-linux/amd64}
@@ -13,26 +13,26 @@ IMAGE_PLATFORM=${IMAGE_PLATFORM:-linux/amd64}
 [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || fail 'AWS_ACCOUNT_ID must contain 12 digits'
 [[ "$AWS_REGION" =~ ^[a-z]{2}(-[a-z]+)+-[0-9]+$ ]] || fail 'Invalid AWS_REGION'
 [[ "$ECR_REPOSITORY" =~ ^[a-z0-9]+([._/-][a-z0-9]+)*$ ]] || fail 'Invalid ECR_REPOSITORY'
-[[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]] || fail 'Invalid BUILD_NUMBER'
+[[ "$RELEASE_ID" =~ ^[0-9]+-[0-9]+$ ]] || fail 'RELEASE_ID must be run_id-run_attempt'
 [[ "$DEPLOY" == true || "$DEPLOY" == false ]] || fail 'DEPLOY must be true or false'
 [[ "$IMAGE_PLATFORM" == linux/amd64 || "$IMAGE_PLATFORM" == linux/arm64 ]] || fail 'Unsupported IMAGE_PLATFORM'
-for tool in aws docker git python3; do command -v "$tool" >/dev/null || fail "Install $tool on the Jenkins agent"; done
+for tool in aws docker git python3; do command -v "$tool" >/dev/null || fail "Install $tool on the runner"; done
 if [[ "$DEPLOY" == true ]]; then
   required EKS_CLUSTER_NAME
   [[ "$EKS_CLUSTER_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]] || fail 'Invalid EKS_CLUSTER_NAME'
   [[ ${#K8S_NAMESPACE} -le 63 && "$K8S_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || fail 'Invalid K8S_NAMESPACE'
-  command -v kubectl >/dev/null || fail 'Install kubectl on the Jenkins agent'
+  command -v kubectl >/dev/null || fail 'Install kubectl on the runner'
 fi
 
 actual_account=$(aws sts get-caller-identity --query Account --output text)
-[[ "$actual_account" == "$AWS_ACCOUNT_ID" ]] || fail 'Agent AWS identity belongs to another account'
+[[ "$actual_account" == "$AWS_ACCOUNT_ID" ]] || fail 'Runner AWS identity belongs to another account'
 repository_uri=$(aws ecr describe-repositories --region "$AWS_REGION" --repository-names "$ECR_REPOSITORY" --query 'repositories[0].repositoryUri' --output text)
 registry=${repository_uri%%/*}
 [[ "$registry" == "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" || "$registry" == "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com.cn" ]] || fail 'Unexpected ECR registry'
 [[ "$repository_uri" == "$registry/$ECR_REPOSITORY" ]] || fail 'Unexpected ECR repository URI'
 source_commit=$(git rev-parse HEAD)
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Expected a Git SHA-1 commit'
-image_tag="$source_commit-$BUILD_NUMBER"
+image_tag="$source_commit-$RELEASE_ID"
 image="$repository_uri:$image_tag"
 
 umask 077
@@ -44,7 +44,7 @@ if [[ "$DEPLOY" == true ]]; then
   export KUBECONFIG="$release_tmp/kubeconfig"
   aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME" --kubeconfig "$KUBECONFIG" --alias release >/dev/null
   kube=(kubectl --namespace="$K8S_NAMESPACE" --request-timeout=30s)
-  # Only check names. Never print Secret values in Jenkins logs or artifacts.
+  # Only check names. Never print Secret values in CI logs or artifacts.
   "${kube[@]}" get configmap "$SERVICE-config" -o name >/dev/null
   "${kube[@]}" get secret "$SERVICE-secrets" -o name >/dev/null
 fi
