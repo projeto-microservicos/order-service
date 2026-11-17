@@ -32,7 +32,7 @@ services:
       - CMD
       - curl
       - -fsS
-      - http://localhost:9091/actuator/health/readiness
+      - http://localhost:8080/orders/health-check
       interval: 10s
       timeout: 5s
       retries: 20

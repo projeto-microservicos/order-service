@@ -21,6 +21,7 @@ public class OrderSecurity {
         if (jwtEnabled) {
             http.securityMatcher("/orders", "/orders/**")
                 .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(HttpMethod.GET, "/orders/health-check").permitAll()
                     .requestMatchers(HttpMethod.GET, "/orders", "/orders/**").hasAuthority("SCOPE_orders:read")
                     .requestMatchers(HttpMethod.POST, "/orders", "/orders/**").hasAuthority("SCOPE_orders:write")
                     .anyRequest().denyAll())

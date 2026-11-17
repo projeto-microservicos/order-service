@@ -21,4 +21,7 @@ public class OrderResource {
     public OrderOut get(@RequestHeader(value="id-account",required=false) String account,@PathVariable String id,@RequestParam(defaultValue="USD") String currency) {
         return service.get(identity.resolve(account),id,currency);
     }
+    /** Probe target (compose healthcheck, Kubernetes): 200 while the process serves HTTP; no token, no identity, nothing internal. */
+    @GetMapping("/health-check")
+    public ResponseEntity<Void> healthCheck() { return ResponseEntity.ok().build(); }
 }

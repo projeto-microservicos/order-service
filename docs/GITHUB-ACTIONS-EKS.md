@@ -45,12 +45,12 @@ O runner precisa alcançar o endpoint Kubernetes. Se o EKS tiver endpoint privad
 
 ## Acesso ao EKS
 
-O responsável pelo cluster cria uma access entry para o ARN da role IAM, associada ao grupo `github-actions-order`. Exemplo para um cluster que já usa autenticação `API` ou `API_AND_CONFIG_MAP`:
+O RoleBinding de `k8s/github-actions-rbac.yaml` usa o grupo Kubernetes `github-deployer`. No cluster `eks-store`, a role de CI compartilhada (`github-actions-deployer`) já tem uma access entry com esse grupo, então basta aplicar o RBAC. Em outro cluster, crie a access entry da role com o mesmo grupo (autenticação `API` ou `API_AND_CONFIG_MAP`):
 
 ```bash
 aws eks create-access-entry --region "$AWS_REGION" \
   --cluster-name "$EKS_CLUSTER_NAME" --principal-arn "$AWS_ROLE_ARN" \
-  --type STANDARD --kubernetes-groups github-actions-order
+  --type STANDARD --kubernetes-groups github-deployer
 kubectl -n "$K8S_NAMESPACE" apply -f k8s/github-actions-rbac.yaml
 ```
 

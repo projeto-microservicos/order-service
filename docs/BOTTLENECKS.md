@@ -88,7 +88,7 @@ JWT_AUDIENCE=order-service
 
 O emissor deve expor os metadados OAuth2/OIDC e JWKS. A aplicação verifica assinatura, emissor, validade temporal e audiência. `sub` deve ser o UUID da conta. O token precisa conter `orders:read` para GET e `orders:write` para POST, em `scope` ou `scp`. Envie `Authorization: Bearer ...`. Headers de identidade enviados pelo cliente são ignorados nesse modo; consultas continuam filtradas por conta. Sem token ou com token inválido: 401; sem scope: 403; pedido de outra conta: 404. Os tokens precisam ser aceitos também pelas dependências conforme a política do gateway; este serviço encaminha a identidade da conta para produto/câmbio na rede interna.
 
-Health/Prometheus continuam na porta privada 9091. O serviço não cria usuários, emite tokens nem altera o gateway existente.
+`GET /orders/health-check` fica aberto mesmo com JWT (probes de startup/liveness e healthcheck do Compose). Readiness e Prometheus continuam na porta privada 9091. O serviço não cria usuários, emite tokens nem altera o gateway existente.
 
 ## Pagamentos Stripe
 

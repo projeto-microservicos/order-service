@@ -21,7 +21,7 @@ class OrderApiTest {
         upstream=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         upstream.createContext("/",e -> {
             String path=e.getRequestURI().getPath(); String body; int status=200;
-            if(path.equals("/products/"+PRODUCT)) body="{\"id\":\""+PRODUCT+"\",\"price\":10.12}";
+            if(path.equals("/products/"+PRODUCT)) body="{\"id\":\""+PRODUCT+"\",\"name\":\"Tomato\",\"price\":10.12,\"unit\":\"kg\"}";
             else if(path.equals("/exchanges/USD/BRL")) body="{\"sell\":6,\"buy\":5.9}";
             else { status=path.startsWith("/products")?404:422; body="{}"; }
             byte[] data=body.getBytes(StandardCharsets.UTF_8); e.getResponseHeaders().set("Content-Type","application/json");
@@ -31,6 +31,10 @@ class OrderApiTest {
         registry.add("store.exchange-url",() -> "http://127.0.0.1:"+upstream.getAddress().getPort());
     }
     @AfterAll static void stop() { upstream.stop(0); }
+    @Test void healthCheckAnswers200WithoutIdentityOrBody() {
+        var response=RestClient.create("http://localhost:"+port).get().uri("/orders/health-check").retrieve().toEntity(String.class);
+        assertThat(response.getStatusCode().value()).isEqualTo(200); assertThat(response.getBody()).isNull();
+    }
     RestClient client(String account) { return RestClient.builder().baseUrl("http://localhost:"+port).defaultHeader("id-account",account).build(); }
     @Test void totalsOwnershipAndCurrencyConversion() {
         var alice=client(UUID.randomUUID().toString()); var bob=client(UUID.randomUUID().toString());

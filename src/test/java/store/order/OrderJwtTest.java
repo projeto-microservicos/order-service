@@ -40,6 +40,9 @@ class OrderJwtTest {
         assertThatThrownBy(() -> client("bob", alice).get().uri("/orders/" + order.id()).retrieve().toBodilessEntity())
                 .isInstanceOf(HttpClientErrorException.NotFound.class);
     }
+    @Test void healthCheckNeedsNoTokenEvenWithJwtEnabled() {
+        assertThat(client(null, null).get().uri("/orders/health-check").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(200);
+    }
     @Test void missingInvalidTokensAndInsufficientScopesAreRejected() {
         String account = UUID.randomUUID().toString();
         assertThatThrownBy(() -> client(null, account).get().uri("/orders").retrieve().toBodilessEntity())

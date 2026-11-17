@@ -30,6 +30,7 @@ The API is at `http://localhost:8082`. Compose starts its private PostgreSQL ins
 | `GET /orders` | 200; summaries belonging to the current account |
 | `GET /orders/{id}` | 200; USD details; another account's order 404 |
 | `GET /orders/{id}?currency=BRL` | 200; converted totals; unsupported currency 422 |
+| `GET /orders/health-check` | 200 while the process serves HTTP; no token, no identity, empty body. Target of the startup/liveness probes and the Compose healthcheck |
 
 Supply the trusted `id-account` header. Example body:
 
