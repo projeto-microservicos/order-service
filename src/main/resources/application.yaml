@@ -30,6 +30,11 @@ spring:
     dynamic: ${store.messaging.enabled}
     template:
       mandatory: true
+    listener:
+      simple:
+        # A failed message is never requeued in a loop: it goes to orders.created.dlq (OrderConfirmationWorker).
+        default-requeue-rejected: false
+        prefetch: 10
   flyway:
     schemas: orders
   jpa:
@@ -70,6 +75,10 @@ store:
   messaging:
     enabled: ${MESSAGING_ENABLED:false}
     poll-delay: ${OUTBOX_POLL_DELAY:1000}
+    # BOT-03: consumer of orders.created (needs MESSAGING_ENABLED=true too). Off by default.
+    worker-enabled: ${ORDER_WORKER_ENABLED:false}
+    # Demo only: artificial processing time, to show POST /orders does not wait for the consumer.
+    worker-delay: ${ORDER_WORKER_DELAY:0s}
   security:
     jwt-enabled: ${JWT_ENABLED:false}
     issuer-uri: ${JWT_ISSUER_URI:}

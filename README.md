@@ -46,7 +46,7 @@ The test suite covers persistence, ownership, totals/conversion, validation, cac
 
 ## Bottlenecks
 
-The seven areas in the [Insper exercise](https://insper.github.io/platform/pt/2026.2/exercises/bottlenecks/) have implementations for Redis caching, Prometheus/Grafana, RabbitMQ with a transactional outbox, Kubernetes load distribution with optional additional replicas, Trivy in CI/CD, optional Stripe PaymentIntents and optional OAuth2 JWT verification. The current EKS configuration uses one replica with cache and messaging disabled until cluster capacity is available.
+The seven areas in the [Insper exercise](https://insper.github.io/platform/pt/2026.2/exercises/bottlenecks/) have implementations for Redis caching, Prometheus/Grafana, RabbitMQ with a transactional outbox, Kubernetes load distribution with optional additional replicas, Trivy in CI/CD, optional Stripe PaymentIntents and optional OAuth2 JWT verification. In EKS, messaging is **on** since 17/11 (BOT-04): RabbitMQ runs in the cluster (`k8s/rabbitmq.yaml`) and `OrderConfirmationWorker` consumes `OrderCreated` asynchronously, idempotently and with a DLQ (see [docs/BOTTLENECKS.md](docs/BOTTLENECKS.md)). Cache stays off (one replica).
 
 See [the implementation and validation guide](docs/BOTTLENECKS.md) for the before/after mapping, configuration, payment endpoints and failure behavior. To run the monitoring stack locally:
 
@@ -69,7 +69,7 @@ Use [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) for verification,
 
 See [the GitHub Actions + EKS setup guide](docs/GITHUB-ACTIONS-EKS.md) for variables, OIDC trust/IAM policies, EKS access and environment setup. Pull requests run CI only. Releases run manually from `main`, or automatically after setting `RELEASE_ENABLED=true`. Keep `DEPLOY_ENABLED=false` until PostgreSQL and cluster access are ready; manual runs have a separate `deploy` checkbox, off by default.
 
-`k8s/k8s.yaml` contains only the application Deployment and Services. It uses one replica, disables cache/messaging explicitly, and avoids an extra Pod during updates (brief downtime is possible). Leave the optional HPA unapplied. Copy `k8s/config.example.yaml` to `k8s/config.local.yaml` and configure your environment once. Secrets are created separately; deployments never overwrite them. PostgreSQL is required; this pipeline creates no AWS infrastructure. The application remains private (ClusterIP).
+`k8s/k8s.yaml` contains only the application Deployment and Services. It uses one replica, disables the cache and enables messaging and the order-confirmation worker explicitly, and avoids an extra Pod during updates (brief downtime is possible). The RabbitMQ broker (`k8s/rabbitmq.yaml`) is applied by hand, not by the pipeline. Leave the optional HPA unapplied. Copy `k8s/config.example.yaml` to `k8s/config.local.yaml` and configure your environment once. Secrets are created separately; deployments never overwrite them. PostgreSQL is required; this pipeline creates no AWS infrastructure. The application remains private (ClusterIP).
 
 ## Clone the repository
 
@@ -83,3 +83,5 @@ Configure your Git name/email before committing contributions. Push changes to t
 ## Attribution and assistance
 
 This service was developed for the [Insper 2026.2 exercises](https://insper.github.io/platform/pt/2026.2/), following the architectural conventions of the supplied [platform](https://github.com/adventurescumm-studies/platform) and its account/auth/gateway repositories. AI assistance covered the initial implementation, tests, configuration and this repository separation. Review and adapt the code, record your actual contributions, and follow the course disclosure requirements.
+
+Authorship: implemented by `adventurescumm` until 16/11/2026; he left the project on 17/11 and João (`joaorcmr`) took over. On 17/11, by João's decision, João's agent (Claude) added `GET /orders/health-check` (ORD-01) and the EDA consumer (`OrderConfirmationWorker`, migration V3, its tests, the RabbitMQ manifest and the messaging switch in `k8s/k8s.yaml`, cards BOT-02 to BOT-04); João reviews before committing.

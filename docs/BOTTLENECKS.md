@@ -45,7 +45,20 @@ A transação grava pedido, itens e evento em `orders.order_outbox`. Um relay bu
 
 Contrato: exchange direto durável `store.orders`, routing key `created`, fila durável `orders.created`, mensagens JSON persistentes com `message_id=eventId`. O JSON contém `eventId`, `type=OrderCreated`, `orderId`, `accountId`, `createdAt`, `currency=USD` e `total`. Serviços de notificação/faturamento podem consumir essa fila sem entrar no caminho HTTP de criação de pedidos. Consumidores que precisem receber todos os eventos independentemente devem declarar sua própria fila/binding.
 
-A entrega é **ao menos uma vez**: uma queda depois do ACK e antes da gravação no banco pode repetir o evento. Consumidores devem deduplicar por `eventId`, confirmar somente após seu trabalho concluir e rejeitar falhas definitivas sem requeue. A fila possui dead-letter routing para `orders.created.dlq`; a política de tentativas do consumidor precisa ser definida no serviço consumidor.
+A entrega é **ao menos uma vez**: uma queda depois do ACK e antes da gravação no banco pode repetir o evento. A fila possui dead-letter routing para `orders.created.dlq`.
+
+### Consumidor: confirmação do pedido (BOT-03, 17/11)
+
+O `OrderConfirmationWorker` é um `@RabbitListener` da fila `orders.created`. Liga com `MESSAGING_ENABLED=true` e `ORDER_WORKER_ENABLED=true`, os dois explícitos no `k8s/k8s.yaml`. Para cada pedido novo, ele grava a confirmação em `orders.order_notifications` (migration V3) e registra no log o "envio" ao cliente. O projeto não tem servidor de e-mail, então o log faz o papel do envio.
+
+- **Desacoplado:** o `POST /orders` só grava o pedido e o evento na mesma transação. A confirmação acontece depois, em outra thread, sem atrasar a resposta. Para provar isso, use `ORDER_WORKER_DELAY` (por exemplo, `2s`): ele atrasa o consumidor, e a latência do `POST /orders` continua a mesma.
+- **Idempotente:** o `eventId` é a chave primária da tabela. Uma reentrega faz `INSERT ... ON CONFLICT DO NOTHING`, é confirmada (ACK) e não muda nada.
+- **ACK depois do commit:** o container só confirma quando o método termina, depois da transação.
+- **Mensagem envenenada** (não é JSON, faltam campos, outro `type`): rejeitada sem requeue, vai direto para a `orders.created.dlq`.
+- **Falha transitória** (banco fora): 3 tentativas com backoff; depois, DLQ. Nunca entra em loop de requeue (`default-requeue-rejected=false`). Se o pod for desligado no meio, a mensagem volta para a fila.
+- **Métrica:** `orders_events_consumed_total{result="processed|duplicate|rejected|dead-lettered"}`.
+
+O broker do EKS é o `k8s/rabbitmq.yaml`: StatefulSet de 1 réplica com `emptyDir`, sem porta pública e aplicado à mão, porque o CI só aplica o `k8s.yaml`. Os testes são o `OrderConfirmationWorkerTest` (sem broker) e o `OrderEdaInfrastructureTest` (opt-in, `RUN_INFRA_SMOKE=true`, com RabbitMQ real: pedido → outbox → relay → consumidor → reentrega ignorada → mensagem inválida na DLQ).
 
 Para observar eventos localmente, use a interface de administração dentro do contêiner ou os comandos do RabbitMQ; não há porta de administração pública. Consulte a outbox e as métricas `orders_outbox_deliveries_total` para distinguir publicações e novas tentativas. Durante indisponibilidade do broker, novos pedidos continuam sendo persistidos e acumulam eventos para envio posterior.
 

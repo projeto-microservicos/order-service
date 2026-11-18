@@ -42,8 +42,12 @@ spec:
         env:
         - name: CACHE_ENABLED
           value: 'false'
+        # BOT-04: EDA on. Outbox relay publishes OrderCreated to RabbitMQ (k8s/rabbitmq.yaml, applied by hand) and
+        # OrderConfirmationWorker consumes it. Needs RABBITMQ_HOST in order-config and RABBITMQ_PASSWORD in order-secrets.
         - name: MESSAGING_ENABLED
-          value: 'false'
+          value: 'true'
+        - name: ORDER_WORKER_ENABLED
+          value: 'true'
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

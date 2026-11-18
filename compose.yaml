@@ -16,6 +16,7 @@ services:
       CACHE_TTL: ${CACHE_TTL:-5m}
       REDIS_HOST: order-cache
       MESSAGING_ENABLED: ${MESSAGING_ENABLED:-true}
+      ORDER_WORKER_ENABLED: ${ORDER_WORKER_ENABLED:-true}
       RABBITMQ_HOST: order-rabbit
       RABBITMQ_USERNAME: store
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Run python scripts/init-env.py}
